@@ -102,3 +102,27 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# csvs
+*.csv
+/*.csv
+
+#pkl
+*.pkl
+/*.pkl
+
+#excel
+
+#temp
+temp_repo/
+
+#VSCODE
+.vscode/
+
+#temp files in linux/mac/R/eclipse
+*~
+.DS_Store
+.Rhistory
+.RData
+.project
+.pydevproject
