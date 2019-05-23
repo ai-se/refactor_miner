@@ -55,7 +55,7 @@ class MetricsGetter(object):
         # Reference current directory, so we can go back after we are done.
 
         # Generate path to store udb files
-        self.udb_path = self.cwd.joinpath(".temp", "udb")
+        self.udb_path = self.cwd.joinpath("temp", "udb")
 
         # Create a folder to hold the udb files
         if not self.udb_path.is_dir():
@@ -128,6 +128,30 @@ class MetricsGetter(object):
             self.pre_refactored_und_file = und_file
         elif file_name_suffix == "refactored":
             self.refactored_und_file = und_file
+
+        # Go to the cloned repo
+        os.chdir(self.repo_path)
+
+    def _generate_metrics_report(self, file_name_suffix):
+        """
+        Creates understand project files
+        Parameters
+        ----------
+        file_name_suffix : str
+            A suffix for the understand_filenames
+        """
+        # Create a handle for storing *.udb file for the project
+        und_file = self.udb_path.joinpath(
+            "{}_{}.udb".format(self.repo_name, file_name_suffix))
+        # Go to the udb path
+        os.chdir(self.udb_path)
+
+        # Generate udb file
+        if self.repo_lang == "java":
+            cmd = "/Applications/Understand.app/Contents/MacOS/und metrics {}".format(str(und_file))
+        else:
+            print("Please select repo with Java language")
+        out, err = self._os_cmd(cmd)
 
         # Go to the cloned repo
         os.chdir(self.repo_path)
@@ -207,57 +231,13 @@ class MetricsGetter(object):
             self._create_und_files("pre_refactored")
             #print(self.buggy_und_file)
             db_pre_refactored = und.open(str(self.pre_refactored_und_file))
-            metric_list = ['AvgCyclomatic', 
-            'AvgCyclomaticModified', 
-            'AvgCyclomaticStrict', 
-            'AvgEssential', 
-            'AvgLine', 
-            'AvgLineBlank', 
-            'AvgLineCode', 
-            'AvgLineComment', 
-            'CountClassBase', 
-            'CountClassCoupled', 
-            'CountClassDerived', 
-            'CountDeclClassMethod', 
-            'CountDeclClassVariable', 
-            'CountDeclInstanceMethod', 
-            'CountDeclInstanceVariable', 
-            'CountDeclMethod', 
-            'CountDeclMethodAll', 
-            'CountDeclMethodDefault', 
-            'CountDeclMethodPrivate', 
-            'CountDeclMethodProtected', 
-            'CountDeclMethodPublic', 
-            'CountLine', 
-            'CountLineBlank', 
-            'CountLineCode', 
-            'CountLineCodeDecl', 
-            'CountLineCodeExe', 
-            'CountLineComment', 
-            'CountSemicolon', 
-            'CountStmt', 
-            'CountStmtDecl', 
-            'CountStmtExe', 
-            'MaxCyclomatic', 
-            'MaxCyclomaticModified', 
-            'MaxCyclomaticStrict', 
-            'MaxEssential', 
-            'MaxInheritanceTree', 
-            'MaxNesting', 
-            'PercentLackOfCohesion', 
-            'PercentLackOfCohesionModified', 
-            'RatioCommentToCode', 
-            'SumCyclomatic', 
-            'SumCyclomaticModified', 
-            'SumCyclomaticStrict', 
-            'SumEssential']
-            print(db_pre_refactored.metric(metric_list))
+            #self._generate_metrics_report("pre_refactored")
             for file in db_pre_refactored.ents("class"): #File
                 # print directory name
                 if True: #str(file) in files_changed:
                     metrics = file.metric(file.metrics())
-                    print(file, metrics)
                     metrics["Name"] = file.name()
+                    metrics["Type"] = file.type()
                     metrics["Refactored"] = 1
                     self.metrics_dataframe = self.metrics_dataframe.append(
                         pd.Series(metrics), ignore_index=True)
@@ -280,6 +260,7 @@ class MetricsGetter(object):
                 if True: #str(file) in files_changed:
                     metrics = file.metric(file.metrics())
                     metrics["Name"] = file.name()
+                    metrics["Type"] = file.type()
                     metrics["Refactored"] = 0
                     self.metrics_dataframe = self.metrics_dataframe.append(
                         pd.Series(metrics), ignore_index=True)
