@@ -55,7 +55,7 @@ class MetricsGetter(object):
         # Reference current directory, so we can go back after we are done.
 
         # Generate path to store udb files
-        self.udb_path = self.cwd.joinpath("temp", "udb")
+        self.udb_path = self.cwd.joinpath(".temp", "udb")
 
         # Create a folder to hold the udb files
         if not self.udb_path.is_dir():
@@ -236,8 +236,8 @@ class MetricsGetter(object):
                 # print directory name
                 if True: #str(file) in files_changed:
                     metrics = file.metric(file.metrics())
-                    metrics["Name"] = file.name()
-                    metrics["Type"] = file.type()
+                    metrics["Name"] = file.longname()
+                    metrics["Type"] = file.kind()
                     metrics["Refactored"] = 1
                     self.metrics_dataframe = self.metrics_dataframe.append(
                         pd.Series(metrics), ignore_index=True)
@@ -259,15 +259,15 @@ class MetricsGetter(object):
                 # print directory name
                 if True: #str(file) in files_changed:
                     metrics = file.metric(file.metrics())
-                    metrics["Name"] = file.name()
-                    metrics["Type"] = file.type()
+                    metrics["Name"] = file.longname()
+                    metrics["Type"] = file.kind()
                     metrics["Refactored"] = 0
                     self.metrics_dataframe = self.metrics_dataframe.append(
                         pd.Series(metrics), ignore_index=True)
             db_refactored.close()
             # Purge und file
             self._os_cmd("rm {}".format(str(self.refactored_und_file)))
-
+            break
             #printProgressBar(i, len(self.buggy_clean_pairs),
             #                 prefix='Progress:', suffix='Complete', length=50)
         return self.metrics_dataframe
@@ -295,7 +295,7 @@ class MetricsGetter(object):
         Save the metrics dataframe to CSV
         """
         # Determine the path to save file
-        save_path = self.cwd.joinpath('datasets', self.repo_name+".csv")
+        save_path = up(self.cwd) + '/results/understand/' +self.repo_name + '.csv'
         # Save the dataframe (no index column)
         self.metrics_dataframe.to_csv(save_path, index=False)
 
