@@ -6,6 +6,7 @@ Created on Tue Mar  5 18:54:29 2019
 @author: suvodeepmajumder
 """
 from git_log import git2repo
+from utils import  regex_matcher
 import os
 import re
 import shlex
@@ -37,6 +38,7 @@ class RefactorMine(object):
     """
 
     def __init__(self,repo_url,repo_name):
+        self.matcher = regex_matcher.regex_matcher()
         self.repo_url = repo_url
         self.repo_name = repo_name
         self.repo_obj = git2repo.git2repo(self.repo_url,self.repo_name)
@@ -89,7 +91,15 @@ class RefactorMine(object):
         print(cmd)
         out, err = self._os_cmd(cmd)
         self.commit_dataframe = pd.read_csv(self.file_path,sep = ';')
-        #self.commit_dataframe = self.commit_dataframe[['CommitId','RefactoringType']]
+        self.commit_dataframe['before_class'] = [0]*self.commit_dataframe.shape[0]
+        self.commit_dataframe['after_class'] = [0]*self.commit_dataframe.shape[0]
+        for i in range(self.commit_dataframe.shape[0]):
+            refactoring_type = self.commit_dataframe.iloc[i,1]
+            refactoring_details = self.commit_dataframe.iloc[i,2]
+            print(refactoring_type)
+            before_class, after_class = self.matcher.case_statements(refactoring_type,refactoring_details)
+            self.commit_dataframe.iloc[i,3] = before_class
+            self.commit_dataframe.iloc[i,4] = after_class
         self.save_to_csv()
         return self.commit_dataframe
 

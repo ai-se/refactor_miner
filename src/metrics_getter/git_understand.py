@@ -68,12 +68,17 @@ class MetricsGetter(object):
 
     def read_commits(self):
         df_commits = pd.read_csv(self.file_path)
-        df_commits.drop_duplicates(subset = 'CommitId',inplace = True)
+        unique_commits = df_commits.CommitId.unique()
         commits = []
-        for i in range(df_commits.shape[0]):
-            refactored_commit = self.repo.get(df_commits.iloc[i,0])
-            pre_refactored_commit = self.repo.get(df_commits.iloc[i,0]).parents[0]
-            commits.append([refactored_commit,pre_refactored_commit])
+        for commit in unique_commits:
+            refactored_commit = self.repo.get(commit)
+            pre_refactored_commit = refactored_commit.parents[0]
+            refactored_commit_changed_class = df_commits[df_commits['CommitId'] == commit].before_class.values
+            pre_refactored_commit_changed_class = df_commits[df_commits['CommitId'] == commit].after_class.values
+            commits.append([refactored_commit,
+            pre_refactored_commit,
+            refactored_commit_changed_class,
+            pre_refactored_commit_changed_class])
         return commits
 
     @staticmethod
@@ -210,7 +215,9 @@ class MetricsGetter(object):
         for i in range(len(self.refactored_pairs)):
             refactored_commit_hash = self.refactored_pairs[i][0]
             pre_refactored_commit_hash = self.refactored_pairs[i][1]
-            print(i,(refactored_commit_hash, pre_refactored_commit_hash))
+            refactored_commit_changed_class = self.refactored_pairs[i][3]
+            pre_refactored_commit_changed_class = self.refactored_pairs[i][2]
+            print(i,(refactored_commit_hash.id.hex, pre_refactored_commit_hash.id.hex))
             # Go the the cloned project path
             os.chdir(self.repo_path)
             # Checkout the master branch first, we'll need this
@@ -218,8 +225,8 @@ class MetricsGetter(object):
             self._os_cmd("git reset --hard master", verbose=False)
 
             # Get a list of files changed between the two hashes
-            files_changed = self._files_changed_in_git_diff(
-                pre_refactored_commit_hash, refactored_commit_hash)
+            #files_changed = self._files_changed_in_git_diff(
+            #    pre_refactored_commit_hash, refactored_commit_hash)
             # ------------------------------------------------------------------
             # ---------------------- PRE REFACTORED METRICS -----------------------
             # ------------------------------------------------------------------
@@ -234,7 +241,7 @@ class MetricsGetter(object):
             #self._generate_metrics_report("pre_refactored")
             for file in db_pre_refactored.ents("class"): #File
                 # print directory name
-                if True: #str(file) in files_changed:
+                if str(file.longname()) in pre_refactored_commit_changed_class:
                     metrics = file.metric(file.metrics())
                     metrics["Name"] = file.longname()
                     metrics["Type"] = file.kind()
@@ -257,7 +264,7 @@ class MetricsGetter(object):
             db_refactored = und.open(str(self.refactored_und_file))
             for file in db_refactored.ents("class"):
                 # print directory name
-                if True: #str(file) in files_changed:
+                if str(file.longname()) in refactored_commit_changed_class:
                     metrics = file.metric(file.metrics())
                     metrics["Name"] = file.longname()
                     metrics["Type"] = file.kind()
@@ -267,7 +274,6 @@ class MetricsGetter(object):
             db_refactored.close()
             # Purge und file
             self._os_cmd("rm {}".format(str(self.refactored_und_file)))
-            break
             #printProgressBar(i, len(self.buggy_clean_pairs),
             #                 prefix='Progress:', suffix='Complete', length=50)
         return self.metrics_dataframe
