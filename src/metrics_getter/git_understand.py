@@ -305,6 +305,7 @@ class MetricsGetter(object):
             self._os_cmd("rm {}".format(str(self.refactored_und_file)))
             pre_refactored_commit_hash = refactored_commit_hash.parents[0]
             j = 0
+            first = True
             while(check_exit):
                 j += 1
                 # to find what files have changed.
@@ -316,15 +317,27 @@ class MetricsGetter(object):
                 #print(self.buggy_und_file)
                 db_pre_refactored = und.open(str(self.pre_refactored_und_file))
                 #self._generate_metrics_report("pre_refactored")
-                for file in db_pre_refactored.ents("class"): #File
-                    # print directory name
-                    if str(file.longname()) in pre_refactored_commit_changed_class:
-                        metrics = file.metric(file.metrics())
-                        metrics["Name"] = file.longname()
-                        metrics["Type"] = file.kind()
-                        metrics["Refactored"] = 1
-                        self.metrics_dataframe = self.metrics_dataframe.append(
-                            pd.Series(metrics), ignore_index=True)
+                if first:
+                    for file in db_pre_refactored.ents("class"): #File
+                        # print directory name
+                        if str(file.longname()) in pre_refactored_commit_changed_class:
+                            metrics = file.metric(file.metrics())
+                            metrics["Name"] = file.longname()
+                            metrics["Type"] = file.kind()
+                            metrics["Refactored"] = 1
+                            self.metrics_dataframe = self.metrics_dataframe.append(
+                                pd.Series(metrics), ignore_index=True)
+                    first = False
+                else:
+                    for file in db_pre_refactored.ents("class"): #File
+                        # print directory name
+                        if str(file.longname()) in pre_refactored_commit_changed_class:
+                            metrics = file.metric(file.metrics())
+                            metrics["Name"] = file.longname()
+                            metrics["Type"] = file.kind()
+                            metrics["Refactored"] = 0
+                            self.metrics_dataframe = self.metrics_dataframe.append(
+                                pd.Series(metrics), ignore_index=True)
                 # Purge und file
                 db_pre_refactored.close()
                 self._os_cmd("rm {}".format(str(self.pre_refactored_und_file)))
@@ -337,7 +350,7 @@ class MetricsGetter(object):
                     check_exit = False
                 if check_exit:    
                     pre_refactored_commit_hash = pre_refactored_commit_hash.parents[0]
-
+            print(j)
         self.save_to_csv()    
         return self.metrics_dataframe
 
