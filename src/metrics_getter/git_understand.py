@@ -21,6 +21,8 @@ from collections import defaultdict
 import os
 import platform
 from os.path import dirname as up
+from collections import deque
+import time
 #from main.utils.utils.utils import printProgressBar
 
 
@@ -76,10 +78,12 @@ class MetricsGetter(object):
             pre_refactored_commit = refactored_commit.parents[0]
             refactored_commit_changed_class = df_commits[df_commits['CommitId'] == commit].before_class.values
             pre_refactored_commit_changed_class = df_commits[df_commits['CommitId'] == commit].after_class.values
+            refactoring_type = df_commits[df_commits['CommitId'] == commit].RefactoringType.values
             commits.append([refactored_commit,
             pre_refactored_commit,
             refactored_commit_changed_class,
-            pre_refactored_commit_changed_class])
+            pre_refactored_commit_changed_class,refactoring_type])
+        self.new = commits
         return commits
 
     @staticmethod
@@ -179,7 +183,7 @@ class MetricsGetter(object):
         """
 
         self.metrics_dataframe = pd.DataFrame()
-
+        self.metrics_dataframe_dq = deque()
         #printProgressBar(0, len(self.buggy_clean_pairs), prefix='Progress:',
         #                 suffix='Complete', length=50)
 
@@ -190,6 +194,10 @@ class MetricsGetter(object):
             pre_refactored_commit_hash = self.refactored_pairs[i][1]
             refactored_commit_changed_class = self.refactored_pairs[i][3]
             pre_refactored_commit_changed_class = self.refactored_pairs[i][2]
+            all_changed_class = np.concatenate((refactored_commit_changed_class,
+                                pre_refactored_commit_changed_class),axis = None)
+            refactored_type = self.refactored_pairs[i][4]
+            all_refactoring = np.concatenate((refactored_type,refactored_type), axis = None)
             print(i,(refactored_commit_hash.id.hex, pre_refactored_commit_hash.id.hex))
             # Go the the cloned project path
             os.chdir(self.repo_path)
@@ -216,11 +224,16 @@ class MetricsGetter(object):
                 # print directory name
                 if str(file.longname()) in pre_refactored_commit_changed_class:
                     metrics = file.metric(file.metrics())
+                    metrics["Commit_hash"] = pre_refactored_commit_hash.id.hex
+                    metrics['commit_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(refactored_commit_hash.commit_time))
                     metrics["Name"] = file.longname()
                     metrics["Type"] = file.kind()
                     metrics["Refactored"] = 1
-                    self.metrics_dataframe = self.metrics_dataframe.append(
-                        pd.Series(metrics), ignore_index=True)
+                    metrics["Refactoring_type"] = refactored_type[np.where(
+                        pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
+                    self.metrics_dataframe_dq.append(metrics)
+                    #self.metrics_dataframe = self.metrics_dataframe.append(
+                    #    pd.Series(metrics), ignore_index=True)
             # Purge und file
             db_pre_refactored.close()
             self._os_cmd("rm {}".format(str(self.pre_refactored_und_file)))
@@ -237,19 +250,28 @@ class MetricsGetter(object):
             db_refactored = und.open(str(self.refactored_und_file))
             for file in db_refactored.ents("class"):
                 # print directory name
-                if str(file.longname()) in refactored_commit_changed_class:
+                if str(file.longname()) in pre_refactored_commit_changed_class:
                     metrics = file.metric(file.metrics())
+                    _columns = np.array(list(metrics.keys()))
+                    metrics["Commit_hash"] = refactored_commit_hash.id.hex
+                    metrics['commit_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(refactored_commit_hash.commit_time))
                     metrics["Name"] = file.longname()
                     metrics["Type"] = file.kind()
                     metrics["Refactored"] = 0
-                    self.metrics_dataframe = self.metrics_dataframe.append(
-                        pd.Series(metrics), ignore_index=True)
+                    metrics["Refactoring_type"] = refactored_type[np.where(
+                        pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
+                    added_columns = np.array(["Commit_hash","Name","Type","Refactored""Refactoring_type"])
+                    _columns = np.concatenate((_columns,added_columns), axis = None)
+                    self.metrics_dataframe_dq.append(metrics)
+                    #self.metrics_dataframe = self.metrics_dataframe.append(
+                    #    pd.Series(metrics), ignore_index=True)
             db_refactored.close()
             # Purge und file
             self._os_cmd("rm {}".format(str(self.refactored_und_file)))
             #printProgressBar(i, len(self.buggy_clean_pairs),
             #                 prefix='Progress:', suffix='Complete', length=50)
-        self.save_to_csv()
+        self.metrics_dataframe = pd.DataFrame(self.metrics_dataframe_dq, columns=_columns)
+        self.save_to_csv('understand')
         return self.metrics_dataframe
 
     def get_all_commit_all_metrics(self):
@@ -272,12 +294,13 @@ class MetricsGetter(object):
         #                 suffix='Complete', length=50)
 
         # 1. For each clean-buggy commit pairs
-        refactored_pairs_df = pd.DataFrame(self.refactored_pairs, columns = ['refactored_commit_hash',
-        'pre_refactored_commit_hash','pre_refactored_commit_changed_class','refactored_commit_changed_class'])
+        #refactored_pairs_df = pd.DataFrame(self.refactored_pairs, columns = ['refactored_commit_hash',
+        #'pre_refactored_commit_hash','pre_refactored_commit_changed_class','refactored_commit_changed_class','Refctored_type'])
         for i in range(len(self.refactored_pairs)):
             refactored_commit_hash = self.refactored_pairs[i][0]
             refactored_commit_changed_class = self.refactored_pairs[i][3]
             pre_refactored_commit_changed_class = self.refactored_pairs[i][2]
+            refactored_type = self.refactored_pairs[i][4]
             print(i,refactored_commit_hash.id.hex)
             check_exit = True
             # Go the the cloned project path
@@ -293,11 +316,15 @@ class MetricsGetter(object):
             #self._generate_metrics_report("pre_refactored")
             for file in db_refactored.ents("class"): #File
                 # print directory name
-                if str(file.longname()) in refactored_commit_changed_class:
+                if str(file.longname()) in pre_refactored_commit_changed_class:
                     metrics = file.metric(file.metrics())
+                    metrics["Commit_hash"] = refactored_commit_hash.id.hex
+                    metrics['commit_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(refactored_commit_hash.commit_time))
                     metrics["Name"] = file.longname()
                     metrics["Type"] = file.kind()
                     metrics["Refactored"] = 0
+                    metrics["Refactoring_type"] = refactored_type[np.where(
+                        pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
                     self.metrics_dataframe = self.metrics_dataframe.append(
                         pd.Series(metrics), ignore_index=True)
             # Purge und file
@@ -322,9 +349,13 @@ class MetricsGetter(object):
                         # print directory name
                         if str(file.longname()) in pre_refactored_commit_changed_class:
                             metrics = file.metric(file.metrics())
+                            metrics["Commit_hash"] = pre_refactored_commit_hash.id.hex
+                            metrics['commit_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(pre_refactored_commit_hash.commit_time))
                             metrics["Name"] = file.longname()
                             metrics["Type"] = file.kind()
                             metrics["Refactored"] = 1
+                            metrics["Refactoring_type"] = refactored_type[np.where(
+                                pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
                             self.metrics_dataframe = self.metrics_dataframe.append(
                                 pd.Series(metrics), ignore_index=True)
                     first = False
@@ -333,9 +364,13 @@ class MetricsGetter(object):
                         # print directory name
                         if str(file.longname()) in pre_refactored_commit_changed_class:
                             metrics = file.metric(file.metrics())
+                            metrics["Commit_hash"] = pre_refactored_commit_hash.id.hex
+                            metrics['commit_time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(pre_refactored_commit_hash.commit_time))
                             metrics["Name"] = file.longname()
                             metrics["Type"] = file.kind()
-                            metrics["Refactored"] = 0
+                            metrics["Refactored"] = 2 # Change it to 0 for time series
+                            metrics["Refactoring_type"] = refactored_type[np.where(
+                                pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
                             self.metrics_dataframe = self.metrics_dataframe.append(
                                 pd.Series(metrics), ignore_index=True)
                 # Purge und file
@@ -351,7 +386,7 @@ class MetricsGetter(object):
                 if check_exit:    
                     pre_refactored_commit_hash = pre_refactored_commit_hash.parents[0]
             print(j)
-        self.save_to_csv()    
+        self.save_to_csv('time_series')    
         return self.metrics_dataframe
 
     def clean_rows(self):
@@ -372,12 +407,12 @@ class MetricsGetter(object):
         self.metrics_dataframe = self.metrics_dataframe[
             ["Name"]+metric_cols+["Bugs"]]
 
-    def save_to_csv(self):
+    def save_to_csv(self,folder):
         """
         Save the metrics dataframe to CSV
         """
         # Determine the path to save file
-        save_path = up(self.cwd) + '/results/understand/' +self.repo_name + '.csv'
+        save_path = up(self.cwd) + '/results/' + folder + '/' +self.repo_name + '.csv'
         # Save the dataframe (no index column)
         self.metrics_dataframe.to_csv(save_path, index=False)
 

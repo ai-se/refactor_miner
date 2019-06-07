@@ -73,11 +73,11 @@ class regex_matcher(object):
             },
         "Extract Interface":{
             'text':"Extract Interface (.+) from classes \\[(.+)\\]",
-            'strings':['from class']
+            'strings':['from classes']
             },
         "Extract Superclass":{
             'text':"Extract Superclass (.+) from classes \\[(.+)\\]",
-            'strings':['from class']
+            'strings':['from classes']
             },
         "Extract Subclass":{
             'text':"Extract Subclass (.+) from class (.+)",
@@ -184,10 +184,14 @@ class regex_matcher(object):
             'strings':[]
         }
         }
-
         splitter = switcher[ref_type]['strings']
         if len(splitter) == 1:
             before_class = refactoring_details.split(splitter[0],1)[1].strip()
+            before_class = before_class.split('[')
+            if len(before_class) == 1:
+                before_class = before_class[0]
+            else:
+                before_class = before_class[1].split(']')[0]
             after_class = before_class
         elif len(splitter) == 2:
             first_split = refactoring_details.split(splitter[0],1)

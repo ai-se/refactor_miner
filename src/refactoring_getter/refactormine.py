@@ -96,7 +96,6 @@ class RefactorMine(object):
         for i in range(self.commit_dataframe.shape[0]):
             refactoring_type = self.commit_dataframe.iloc[i,1]
             refactoring_details = self.commit_dataframe.iloc[i,2]
-            print(refactoring_type)
             before_class, after_class = self.matcher.case_statements(refactoring_type,refactoring_details)
             self.commit_dataframe.iloc[i,3] = before_class
             self.commit_dataframe.iloc[i,4] = after_class
@@ -111,5 +110,5 @@ class RefactorMine(object):
         save_path = up(self.cwd) + '/results/refactored/' +self.repo_name + '.csv'
         # Save the dataframe (no index column)
         self.commit_dataframe.to_csv(save_path, index=False)
-        self.repo_obj.repo_remove()
+        #self.repo_obj.repo_remove()
 
