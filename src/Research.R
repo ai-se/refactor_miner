@@ -4,9 +4,9 @@ library(dummies)
 library(qcc)
 
 
-input_data = read.csv('~/Documents/AI4SE/refactor_miner/results/understand/xerces2.csv',header=TRUE, sep=",")
+input_data = read.csv('~/Users/suvodeepmajumder/Downloads/repo.csv',header=TRUE, sep=",")
 
-input_data = input_data[which(input_data$Refactoring_type == 'Extract Method'),]
+#input_data = input_data[which(input_data$Refactoring_type == 'Extract Method'),]
 input_data = input_data[,-which(names(input_data) %in% c('Name','Type','Refactoring_type','Commit_hash'))]
 #input_data = input_data[,which(names(input_data) %in% c('CountDeclInstanceVariable','CountDeclMethodPrivate','CountDeclMethodProtected','CountLineCodeExe','MaxInheritanceTree','Refactored'))]
 

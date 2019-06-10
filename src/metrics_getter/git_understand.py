@@ -260,7 +260,7 @@ class MetricsGetter(object):
                     metrics["Refactored"] = 0
                     metrics["Refactoring_type"] = refactored_type[np.where(
                         pre_refactored_commit_changed_class == str(file.longname()))[0][0]]
-                    added_columns = np.array(["Commit_hash","Name","Type","Refactored""Refactoring_type"])
+                    added_columns = np.array(["Commit_hash","commit_time","Name","Type","Refactored","Refactoring_type"])
                     _columns = np.concatenate((_columns,added_columns), axis = None)
                     self.metrics_dataframe_dq.append(metrics)
                     #self.metrics_dataframe = self.metrics_dataframe.append(
@@ -388,6 +388,48 @@ class MetricsGetter(object):
             print(j)
         self.save_to_csv('time_series')    
         return self.metrics_dataframe
+
+
+    def get_refactoring_count(self):
+        """
+        Use the understand tool's API to generate metrics
+
+        Notes
+        -----
+        + For every clean and buggy pairs of hashed, do the following:
+            1. Get the diff of the files changes
+            2. Checkout the snapshot at the buggy commit
+            3. Compute the metrics of the files in that commit.
+            4. Next, checkout the snapshot at the clean commit.
+            5. Compute the metrics of the files in that commit.
+        """
+
+        self.metrics_dataframe = pd.DataFrame()
+        self.metrics_dataframe_dq = []
+        for i in range(len(self.refactored_pairs)):
+            refactored_commit_hash = self.refactored_pairs[i][0]
+            refactored_commit_changed_class = self.refactored_pairs[i][3]
+            print(i,refactored_commit_hash.id.hex)
+            check_exit = True
+            pre_refactored_commit_hash = refactored_commit_hash.parents[0]
+            j = 0
+            while(check_exit):
+                j += 1
+                if pre_refactored_commit_hash.id.hex in self.unique_commits:
+                    check_exit = False
+                elif len(pre_refactored_commit_hash.parents) == 0:
+                    check_exit = False
+                elif j >= 50:
+                    check_exit = False
+                if check_exit:
+                    pre_refactored_commit_hash = pre_refactored_commit_hash.parents[0]
+            self.metrics_dataframe_dq.append([refactored_commit_hash.id.hex,j,len(refactored_commit_changed_class)])
+        print(self.metrics_dataframe_dq)
+        self.metrics_dataframe = pd.DataFrame(self.metrics_dataframe_dq, columns = ['refactored commit','sep_count','change_size'])
+        self.save_to_csv('refactored_freq')
+        return self.metrics_dataframe
+
+    
 
     def clean_rows(self):
         """
